@@ -5,7 +5,9 @@ import matplotlib.dates as mdates
 import pytz
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')  # Use TkAgg for interactive plots; requires tkinter
+matplotlib.use('Agg')
+
+  # Use TkAgg for interactive plots; requires tkinter
 
 def get_tide_plot():
     # Dynamically set date range: yesterday to 5 days forward (6 days total)
