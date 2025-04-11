@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import math
 import numpy as np
-from weather_data import get_current_conditions, degrees_to_cardinal, get_wave_height
+from weather_data import get_current_conditions, degrees_to_cardinal, get_wave_height, get_current_water_temp, get_average_water_temp
 
 class CompassRoseGauge:
     def __init__(self, width=16, height=6):
@@ -22,7 +22,7 @@ class CompassRoseGauge:
         self.ax4 = self.fig.add_axes([(left_margin + 3 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Precipitation
         self.ax5 = self.fig.add_axes([(left_margin + 4 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Barometric Pressure
         self.ax6 = self.fig.add_axes([(left_margin + 5 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Humidity
-        self.ax7 = self.fig.add_axes([(left_margin + 6 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Cloud Cover
+        self.ax7 = self.fig.add_axes([(left_margin + 6 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Water Temperature
         self.ax8 = self.fig.add_axes([(left_margin + 7 * (gauge_width + gap)) / width, top_row_y, gauge_width / width, gauge_height / height])  # Wave Height
         
         for ax in (self.ax1, self.ax2, self.ax3, self.ax4, self.ax5, self.ax6, self.ax7, self.ax8):
@@ -33,7 +33,7 @@ class CompassRoseGauge:
         
         self.fig.canvas.manager.set_window_title("Weather Dashboard Gauges")
 
-    def draw_compass_rose(self, wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, humidity, cloud_cover, wave_height, baro_pressure_3h_ago=None):
+    def draw_compass_rose(self, wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, humidity, water_temp, wave_height, baro_pressure_3h_ago=None):
         # Wind Direction (ax1)
         wind_dir_text = degrees_to_cardinal(wind_direction)
         self.ax1.clear()
@@ -44,7 +44,7 @@ class CompassRoseGauge:
 
         outer_circle = patches.Circle((0, 0), 1.215, edgecolor='#3c2f2f', facecolor='none', linewidth=1.35)
         self.ax1.add_patch(outer_circle)
-        inner_circle = patches.Circle((0, 0), 0.9, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_circle = patches.Circle((0, 0), 0.9, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax1.add_patch(inner_circle)
 
         directions = {"N": 0, "NE": 45, "E": 90, "SE": 135, "S": 180, "SW": 225, "W": 270, "NW": 315}
@@ -78,7 +78,7 @@ class CompassRoseGauge:
         self.ax1.arrow(0, 0, tip_x, tip_y, color='black', width=0.018, head_width=0.054, head_length=0.09, 
                       length_includes_head=True)
 
-        center_circle = patches.Circle((0, 0), 0.27, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        center_circle = patches.Circle((0, 0), 0.27, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax1.add_patch(center_circle)
         self.ax1.text(0, 0, wind_dir_text, ha='center', va='center', fontsize=10.8, family='serif', 
                      color='black', zorder=10)
@@ -95,7 +95,7 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax2.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax2.add_patch(inner_semi)
 
         max_speed = 100
@@ -146,7 +146,7 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax3.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax3.add_patch(inner_semi)
 
         min_temp, max_temp = -20, 120
@@ -189,11 +189,11 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax4.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax4.add_patch(inner_semi)
 
         min_precip, max_precip = 0, 15
-        precip_range = max_precip - min_precip  # Define precip_range here
+        precip_range = max_precip - min_precip
         labeled_values = [0, 3, 6, 9, 12, 15]
         for precip in range(min_precip, max_precip + 1):
             normalized_precip = (precip - min_precip) / precip_range
@@ -234,7 +234,7 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax5.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax5.add_patch(inner_semi)
 
         min_baro, max_baro = 28, 30.7
@@ -323,7 +323,7 @@ class CompassRoseGauge:
         self.ax5.text(0, -0.4, "Barometric Pressure", ha='center', va='center', fontsize=10, 
                      family='serif', color='#3c2f2f')
 
-        # Humidity (ax6) with Debugging
+        # Humidity (ax6)
         self.ax6.clear()
         self.ax6.set_xlim(-1.215, 1.215)
         self.ax6.set_ylim(-1.215, 1.215)
@@ -333,7 +333,7 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax6.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax6.add_patch(inner_semi)
 
         min_humidity, max_humidity = 0, 100
@@ -355,10 +355,7 @@ class CompassRoseGauge:
                 self.ax6.text(label_x, label_y, str(hum), ha='center', va='center', fontsize=7.2, 
                              family='serif', color='#3c2f2f')
 
-        print(f"Raw Humidity Input: {humidity}")
         humidity_clamped = min(max(humidity, min_humidity), max_humidity)
-        print(f"Clamped Humidity (0-100): {humidity_clamped}")
-
         self.ax6.text(0, 0.27, f"{int(humidity_clamped)}%", ha='center', va='center', fontsize=10.8, 
                      family='serif', color='black', zorder=10)
         hum_angle = 180 - ((humidity_clamped - min_humidity) / humidity_range) * 180
@@ -370,7 +367,7 @@ class CompassRoseGauge:
         self.ax6.text(0, -0.4, "Humidity", ha='center', va='center', fontsize=10, 
                      family='serif', color='#3c2f2f')
 
-        # Cloud Cover (ax7) with Debugging
+        # Water Temperature (ax7)
         self.ax7.clear()
         self.ax7.set_xlim(-1.215, 1.215)
         self.ax7.set_ylim(-1.215, 1.215)
@@ -380,42 +377,50 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax7.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax7.add_patch(inner_semi)
 
-        min_cloud, max_cloud = 0, 100
-        cloud_range = max_cloud - min_cloud
-        for cloud in range(0, max_cloud + 1, 10):
-            normalized_cloud = (cloud - min_cloud) / cloud_range
-            angle = 180 - (normalized_cloud * 180)
+        min_temp, max_temp = 30, 80
+        temp_range = max_temp - min_temp
+        for temp in range(min_temp, max_temp + 1, 10):
+            normalized_temp = (temp - min_temp) / temp_range
+            angle = 180 - (normalized_temp * 180)
             rad = math.radians(angle)
-            length = 1.035 if cloud % 20 == 0 else 0.945
+            length = 1.035 if temp % 20 == 0 else 0.945
             x_outer = length * math.cos(rad)
             y_outer = length * math.sin(rad)
             x_inner = (length - 0.09) * math.cos(rad)
             y_inner = (length - 0.09) * math.sin(rad)
             self.ax7.plot([x_inner, x_outer], [y_inner, y_outer], color='#3c2f2f', 
-                         linewidth=1.08 if cloud % 20 == 0 else 0.72)
-            if cloud % 20 == 0:
+                         linewidth=1.08 if temp % 20 == 0 else 0.72)
+            if temp % 20 == 0:
                 label_x = 1.125 * math.cos(rad)
                 label_y = 1.125 * math.sin(rad)
-                self.ax7.text(label_x, label_y, str(cloud), ha='center', va='center', fontsize=7.2, 
+                self.ax7.text(label_x, label_y, str(temp), ha='center', va='center', fontsize=7.2, 
                              family='serif', color='#3c2f2f')
 
-        print(f"Raw Cloud Cover Input: {cloud_cover}")
-        cloud_cover_clamped = min(max(cloud_cover, min_cloud), max_cloud)
-        print(f"Clamped Cloud Cover (0-100): {cloud_cover_clamped}")
+        current_temp = get_current_water_temp() if water_temp is None else water_temp
+        avg_temp = get_average_water_temp()
+        current_temp_clamped = min(max(current_temp, min_temp), max_temp)
+        avg_temp_clamped = min(max(avg_temp, min_temp), max_temp)
 
-        self.ax7.text(0, 0.27, f"{int(cloud_cover_clamped)}%", ha='center', va='center', fontsize=10.8, 
+        self.ax7.text(0, 0.27, f"{int(current_temp_clamped)}°F", ha='center', va='center', fontsize=10.8, 
                      family='serif', color='black', zorder=10)
-        cloud_angle = 180 - ((cloud_cover_clamped - min_cloud) / cloud_range) * 180
-        cloud_rad = math.radians(cloud_angle)
-        cloud_tip_x = 0.81 * math.cos(cloud_rad)
-        cloud_tip_y = 0.81 * math.sin(cloud_rad)
-        self.ax7.arrow(0, 0, cloud_tip_x, cloud_tip_y, color='black', width=0.018, head_width=0.054, 
+        temp_angle = 180 - ((current_temp_clamped - min_temp) / temp_range) * 180
+        temp_rad = math.radians(temp_angle)
+        temp_tip_x = 0.81 * math.cos(temp_rad)
+        temp_tip_y = 0.81 * math.sin(temp_rad)
+        self.ax7.arrow(0, 0, temp_tip_x, temp_tip_y, color='black', width=0.018, head_width=0.054, 
                       head_length=0.09, length_includes_head=True)
-        self.ax7.text(0, -0.4, "Cloud Cover", ha='center', va='center', fontsize=10, 
-                     family='serif', color='#3c2f2f')
+
+        avg_angle = 180 - ((avg_temp_clamped - min_temp) / temp_range) * 180
+        avg_rad = math.radians(avg_angle)
+        avg_tip_x = 0.72 * math.cos(avg_rad)
+        avg_tip_y = 0.72 * math.sin(avg_rad)
+        self.ax7.plot([0, avg_tip_x], [0, avg_tip_y], color='red', linewidth=2.5, zorder=5)
+
+        self.ax7.text(0, -0.4, "Water Temperature", ha='center', va='center', fontsize=10, 
+                     family='Georgia', color='#3c2f2f')
 
         # Wave Height (ax8)
         self.ax8.clear()
@@ -427,7 +432,7 @@ class CompassRoseGauge:
         outer_semi = patches.Arc((0, 0), 2.43, 2.43, theta1=0, theta2=180, edgecolor='#3c2f2f', 
                                 facecolor='none', linewidth=1.35)
         self.ax8.add_patch(outer_semi)
-        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#81D8D0', linewidth=0.9)
+        inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax8.add_patch(inner_semi)
 
         min_wave, max_wave = 0, 30
@@ -463,9 +468,9 @@ class CompassRoseGauge:
                      family='serif', color='#3c2f2f')
 
     def update(self, wind_direction=None, wind_speed=None, wind_gusts=None, temperature=None, precip_24h=None, 
-               baro_pressure=None, humidity=None, cloud_cover=None, wave_height=None, baro_pressure_3h_ago=None):
+               baro_pressure=None, humidity=None, water_temp=None, wave_height=None, baro_pressure_3h_ago=None):
         if any(x is None for x in [wind_direction, wind_speed, wind_gusts, temperature, precip_24h, 
-                                   baro_pressure, humidity, cloud_cover, wave_height]):
+                                   baro_pressure, humidity, water_temp, wave_height]):
             conditions = get_current_conditions()
             wave_height, _ = get_wave_height()
             wind_direction = conditions["wind_direction"]
@@ -475,10 +480,10 @@ class CompassRoseGauge:
             precip_24h = conditions["precipitation_totals"]["24h"]
             baro_pressure = conditions.get("barometric_pressure", 30.0)
             humidity = conditions["humidity"]
-            cloud_cover = conditions["cloud_cover"]
+            water_temp = get_current_water_temp()
             baro_pressure_3h_ago = baro_pressure - 0.1 if baro_pressure_3h_ago is None else baro_pressure_3h_ago
         self.draw_compass_rose(wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, 
-                              humidity, cloud_cover, wave_height, baro_pressure_3h_ago)
+                              humidity, water_temp, wave_height, baro_pressure_3h_ago)
         plt.draw()
 
     def show(self):
@@ -496,14 +501,12 @@ if __name__ == "__main__":
         precip_24h = conditions["precipitation_totals"]["24h"]
         baro_pressure = conditions.get("barometric_pressure", 30.0)
         humidity = conditions["humidity"]
-        cloud_cover = conditions["cloud_cover"]
+        water_temp = get_current_water_temp()
         baro_pressure_3h_ago = baro_pressure - 0.1
         
-        print(f"Passing Baro Pressure to Gauge: {baro_pressure:.2f} inHg")
-        print(f"Passing Baro Pressure 3h Ago to Gauge: {baro_pressure_3h_ago:.2f} inHg")
         gauge = CompassRoseGauge()
         gauge.draw_compass_rose(wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, 
-                               humidity, cloud_cover, wave_height, baro_pressure_3h_ago)
+                               humidity, water_temp, wave_height, baro_pressure_3h_ago)
         gauge.show()
     else:
         print("Error: This script must be run in the main thread.")
