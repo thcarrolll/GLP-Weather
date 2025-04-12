@@ -7,3 +7,5 @@ astral
 numpy
 matplotlib
 plotly
+WazeRouteCalculator
+beautifulsoup4
