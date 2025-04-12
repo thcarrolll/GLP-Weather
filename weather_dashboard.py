@@ -16,15 +16,33 @@ from weather_data import (degrees_to_cardinal, format_time_diff, image_to_base64
                          get_forecast, get_sun_times, get_next_full_moon, get_current_water_temp)
 from compass_rose_gauge import CompassRoseGauge, get_windy_wave_data
 from travel_time import get_drive_time, get_next_train
-from style_config import TITLE_FONT, PALETTE, FALLBACK_FONTS, FONT_PATH
 import os
 import importlib
 import sys
 
+# Default style config
+TITLE_FONT = "Arial"
+FONT_PATH = ""
+FALLBACK_FONTS = ["Helvetica", "sans-serif"]
+PALETTE = {
+    'app_bg': '#f0f0f0',
+    'main_bg': '#ffffff',
+    'card_bg': '#ffffff',
+    'metric_bg': '#e6e6e6',
+    'plot_bg': '#f0f0f0',
+    'plot_line': '#4682b4',  # Close to #B3CDE0
+    'text': '#333333',
+    'title': '#000000',
+    'subtitle': '#555555',
+    'border': '#d3d3d3',
+    'shading': '#b0c4de',
+    'shading_alpha': 0.2
+}
+
 # Set page config
 st.set_page_config(layout="wide", page_title="Groton Long Point", initial_sidebar_state="collapsed")
 
-# Initialize session state with defaults from style_config
+# Initialize session state
 if 'palette' not in st.session_state:
     st.session_state.palette = PALETTE.copy()
 if 'title_font' not in st.session_state:
@@ -34,160 +52,74 @@ if 'font_path' not in st.session_state:
 if 'fallback_fonts' not in st.session_state:
     st.session_state.fallback_fonts = FALLBACK_FONTS.copy()
 
-# Function to write style_config.py (for persistence)
-def update_style_config(title_font, font_path, fallback_fonts, palette):
-    font_path_logic = """
-# Use TITLE_FONT directly if no TTF path is provided
-if FONT_PATH and os.path.exists(FONT_PATH):
+# Function to apply CSS
+def apply_styles():
+    font_stack = f"'{st.session_state.title_font}', " + ", ".join(f"'{f}'" for f in st.session_state.fallback_fonts)
+    font_face_css = ""  # No local fonts in Streamlit Cloud
     try:
-        fm.fontManager.addfont(FONT_PATH)
-        print(f"Loaded custom font: {TITLE_FONT}")
-    except:
-        print(f"Failed to load {TITLE_FONT}, falling back to {FALLBACK_FONTS[0]}")
-        TITLE_FONT = FALLBACK_FONTS[0]
-else:
-    print(f"No TTF path or not found, using TITLE_FONT as system font: {TITLE_FONT}")
-
-# Validate TITLE_FONT, fall back if needed
-if TITLE_FONT not in fm.fontManager.get_font_names():
-    print(f"{TITLE_FONT} not found in system fonts, falling back")
-    TITLE_FONT = next((f for f in FALLBACK_FONTS if f in fm.fontManager.get_font_names()), "serif")
-"""
-    config_content = f"""# style_config.py
-import matplotlib.font_manager as fm
-import os
-
-TITLE_FONT = "{title_font}"
-FONT_PATH = "{font_path}"
-FALLBACK_FONTS = {fallback_fonts}
-
-{font_path_logic}
-
-PALETTE = {{
-    'app_bg': '{palette['app_bg']}',
-    'main_bg': '{palette['main_bg']}',
-    'card_bg': '{palette['card_bg']}',
-    'metric_bg': '{palette['metric_bg']}',
-    'plot_bg': '{palette['plot_bg']}',
-    'plot_line': '{palette['plot_line']}',
-    'text': '{palette['text']}',
-    'title': '{palette['title']}',
-    'subtitle': '{palette.get('subtitle', palette['title'])}',
-    'border': '{palette['border']}',
-    'shading': '{palette['shading']}',
-    'shading_alpha': {palette['shading_alpha']}
-}}
-
-print("Using font:", TITLE_FONT)
-print("PALETTE loaded with app_bg:", PALETTE['app_bg'])
-"""
-    config_path = "C:/Users/teren/Tides/style_config.py"
-    try:
-        with open(config_path, "w") as f:
-            f.write(config_content)
-        print(f"Saved config to {config_path}")
-        with open(config_path, "r") as f:
-            print("New style_config.py content:", f.read())
-        if "style_config" in sys.modules:
-            del sys.modules["style_config"]
-        importlib.import_module("style_config")
-        print("Reloaded style_config successfully")
+        st.markdown(
+            f"""
+            <style>
+            {font_face_css}
+            .stApp {{ background-color: {st.session_state.palette['app_bg']}; color: {st.session_state.palette['text']}; }}
+            .main-content {{ background-color: {st.session_state.palette['main_bg']}; padding-top: 20px; }}
+            .st-emotion-cache-16tyu1 h1 {{ 
+                color: {st.session_state.palette['title']} !important; 
+                font-family: {font_stack} !important; 
+                font-size: 2.75rem; 
+            }}
+            .st-emotion-cache-16ty禁止使用st.markdown
+            .st-emotion-cache-16tyu1 h2 {{ 
+                color: {st.session_state.palette['subtitle']} !important; 
+                font-family: {font_stack} !important; 
+                font-size: 1.75rem; 
+            }}
+            .st-emotion-cache-16tyu1 h3 {{ 
+                color: {st.session_state.palette['subtitle']} !important; 
+                font-family: {font_stack} !important; 
+                font-size: 1.25rem; 
+            }}
+            h4, h5, h6 {{ color: {st.session_state.palette['subtitle']} !important; }}
+            .stText, .stMarkdown, p {{ color: {st.session_state.palette['text']}; }}
+            .card {{ background-color: {st.session_state.palette['card_bg']}; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }}
+            .metric-box {{ background-color: {st.session_state.palette['metric_bg']} !important; border-radius: 8px; padding: 10px; text-align: center; margin: 5px 0; width: 100%; height: 140px; display: flex; flex-direction: column; justify-content: center; }}
+            .metric-box div {{ font-family: {font_stack} !important; color: {st.session_state.palette['title']}; }}
+            .metric-label {{ font-size: 16px; }}
+            .metric-value {{ font-size: 24px; font-weight: bold; }}
+            .metric-extra {{ font-size: 20px; }}
+            .chart-container {{ width: 100%; max-width: 480px; margin: 0 auto; }}
+            .forecast-container {{ background-color: {st.session_state.palette['card_bg']}; border-radius: 8px; padding: 10px; text-align: center; margin: 5px; width: 140px; min-height: 240px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; align-items: center; font-family: serif; }}
+            .forecast-container div {{ font-size: 14px; line-height: 1.2; color: {st.session_state.palette['text']}; }}
+            .forecast-container img {{ width: 80px; margin: 10px auto; display: block; }}
+            .sun-tide-moon-container {{ display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; width: 100%; }}
+            .sun-column, .tide-column, .moon-column, .travel-column {{ display: flex; flex-direction: column; gap: 5px; }}
+            .sun-info, .tide-info, .moon-info, .travel-info {{ display: flex; align-items: center; font-size: 24px; min-width: 200px; }}
+            .gauge-container {{ width: 100%; text-align: center; overflow-x: auto; background-color: {st.session_state.palette['app_bg']}; }}
+            .advisory-box {{ border-left: 5px solid #b22222; padding-left: 10px; margin-top: 10px; }}
+            .advisory-box img {{ vertical-align: middle; margin-right: 8px; }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        print("CSS injected with font stack:", font_stack)
     except Exception as e:
-        st.error(f"Failed to save or reload config: {str(e)}")
-        print(f"Save error details: {str(e)}")
-        return
+        st.error(f"CSS error: {str(e)}")
 
-# Common Windows fonts
-common_fonts = [
-    "Arial", "Calibri", "Comic Sans MS", "Courier New", "Georgia",
-    "Times New Roman", "Trebuchet MS", "Verdana", "Segoe UI", "Custom"
-]
+# Apply styles
+apply_styles()
 
-# Sidebar for config input
+# Sidebar for config
 with st.sidebar:
     st.header("Customize Style")
-    font_choice = st.selectbox("Title Font", common_fonts, index=common_fonts.index(st.session_state.title_font) if st.session_state.title_font in common_fonts else len(common_fonts)-1)
-    if font_choice == "Custom":
-        st.session_state.title_font = st.text_input("Custom Font Name", st.session_state.title_font)
-        st.session_state.font_path = st.text_input("Font File Path (TTF)", st.session_state.font_path)
-    else:
-        st.session_state.title_font = font_choice
-        st.session_state.font_path = ""
-    fallback_fonts_str = st.text_input("Fallback Fonts (comma-separated)", ", ".join(st.session_state.fallback_fonts))
-    st.session_state.fallback_fonts = [f.strip() for f in fallback_fonts_str.split(",")]
+    common_fonts = ["Arial", "Calibri", "Georgia", "Times New Roman", "Verdana"]
+    font_choice = st.selectbox("Title Font", common_fonts, index=common_fonts.index(st.session_state.title_font) if st.session_state.title_font in common_fonts else 0)
+    st.session_state.title_font = font_choice
     st.session_state.palette['app_bg'] = st.color_picker("App Background", st.session_state.palette['app_bg'])
-    st.session_state.palette['main_bg'] = st.color_picker("Main Background", st.session_state.palette['main_bg'])
-    st.session_state.palette['card_bg'] = st.color_picker("Card Background", st.session_state.palette['card_bg'])
-    st.session_state.palette['metric_bg'] = st.color_picker("Metric Background", st.session_state.palette['metric_bg'])
-    st.session_state.palette['plot_bg'] = st.color_picker("Plot Background", st.session_state.palette['plot_bg'])
-    st.session_state.palette['plot_line'] = st.color_picker("Plot Line", st.session_state.palette['plot_line'])
-    st.session_state.palette['text'] = st.color_picker("Text Color", st.session_state.palette['text'])
-    st.session_state.palette['title'] = st.color_picker("Title Color", st.session_state.palette['title'])
-    st.session_state.palette['subtitle'] = st.color_picker("Subtitle Color", st.session_state.palette.get('subtitle', st.session_state.palette['title']))
-    st.session_state.palette['border'] = st.color_picker("Border Color", st.session_state.palette['border'])
-    st.session_state.palette['shading'] = st.color_picker("Shading Color", st.session_state.palette['shading'])
-    st.session_state.palette['shading_alpha'] = st.slider("Shading Alpha", 0.0, 1.0, st.session_state.palette['shading_alpha'])
-    if st.button("Save Config"):
-        update_style_config(st.session_state.title_font, st.session_state.font_path, st.session_state.fallback_fonts, st.session_state.palette)
-        st.success("Config saved! Changes applied live; restart to update plots.")
+    if st.button("Apply Changes"):
+        apply_styles()
+        st.success("Styles updated!")
 
-# Build font-family stack
-font_stack = f"'{st.session_state.title_font}', " + ", ".join(f"'{f}'" for f in st.session_state.fallback_fonts)
-
-# Apply CSS with advisory styling
-font_face_css = f"""
-@font-face {{
-    font-family: '{st.session_state.title_font}';
-    src: url('file:///{st.session_state.font_path}') format('truetype');
-}}
-""" if st.session_state.font_path and os.path.exists(st.session_state.font_path) else ""
-
-st.markdown(
-    f"""
-    <style>
-    {font_face_css}
-    .stApp {{ background-color: {st.session_state.palette['app_bg']}; color: {st.session_state.palette['text']}; }}
-    .main-content {{ background-color: {st.session_state.palette['main_bg']}; padding-top: 20px; }}
-    .st-emotion-cache-16tyu1 h1 {{ 
-        color: {st.session_state.palette['title']} !important; 
-        font-family: {font_stack} !important; 
-        font-size: 2.75rem; 
-    }}
-    .st-emotion-cache-16tyu1 h2 {{ 
-        color: {st.session_state.palette['subtitle']} !important; 
-        font-family: {font_stack} !important; 
-        font-size: 1.75rem; 
-    }}
-    .st-emotion-cache-16tyu1 h3 {{ 
-        color: {st.session_state.palette['subtitle']} !important; 
-        font-family: {font_stack} !important; 
-        font-size: 1.25rem; 
-    }}
-    h4, h5, h6 {{ color: {st.session_state.palette['subtitle']} !important; }}
-    .stText, .stMarkdown, p {{ color: {st.session_state.palette['text']}; }}
-    .card {{ background-color: {st.session_state.palette['card_bg']}; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }}
-    .metric-box {{ background-color: {st.session_state.palette['metric_bg']} !important; border-radius: 8px; padding: 10px; text-align: center; margin: 5px 0; width: 100%; height: 140px; display: flex; flex-direction: column; justify-content: center; }}
-    .metric-box div {{ font-family: {font_stack} !important; color: {st.session_state.palette['title']}; }}
-    .metric-label {{ font-size: 16px; }}
-    .metric-value {{ font-size: 24px; font-weight: bold; }}
-    .metric-extra {{ font-size: 20px; }}
-    .chart-container {{ width: 100%; max-width: 480px; margin: 0 auto; }}
-    .forecast-container {{ background-color: {st.session_state.palette['card_bg']}; border-radius: 8px; padding: 10px; text-align: center; margin: 5px; width: 140px; min-height: 240px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; align-items: center; font-family: serif; }}
-    .forecast-container div {{ font-size: 14px; line-height: 1.2; color: {st.session_state.palette['text']}; }}
-    .forecast-container img {{ width: 80px; margin: 10px auto; display: block; }}
-    .sun-tide-moon-container {{ display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; width: 100%; }}
-    .sun-column, .tide-column, .moon-column, .travel-column {{ display: flex; flex-direction: column; gap: 5px; }}
-    .sun-info, .tide-info, .moon-info, .travel-info {{ display: flex; align-items: center; font-size: 24px; min-width: 200px; }}
-    .gauge-container {{ width: 100%; text-align: center; overflow-x: auto; background-color: {st.session_state.palette['app_bg']}; }}
-    .advisory-box {{ border-left: 5px solid #b22222; padding-left: 10px; margin-top: 10px; }}
-    .advisory-box img {{ vertical-align: middle; margin-right: 8px; }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-print("CSS injected with font stack:", font_stack)
-
-# Fetch travel data with short TTL cache
+# Fetch travel data
 @st.cache_data(ttl=60)
 def get_travel_data(_timestamp):
     try:
@@ -201,22 +133,22 @@ def get_travel_data(_timestamp):
 timestamp = datetime.datetime.now().timestamp()
 drive_time, next_train = get_travel_data(timestamp)
 
-# Fetch conditions with caching
+# Fetch conditions
 @st.cache_data(ttl=3600)
 def cached_current_conditions():
     return get_current_conditions()
 conditions = cached_current_conditions()
 
-# Fetch wave height with caching
+# Fetch wave height
 @st.cache_data(ttl=3600)
 def cached_wave_height():
     return get_wave_height()
 wave_height, wave_timestamp = cached_wave_height()
 
-# Fetch tide data for high/low times
+# Fetch tide data
 _, _, _, next_high_time, next_low_time = tide_app.get_tide_plot()
 
-# Fetch barometric pressure data
+# Fetch barometric pressure
 @st.cache_data(ttl=3600)
 def get_historical_baro_pressure():
     fig, current_pressure, trend, pressure_3h_ago = barometric_app.get_barometric_plot_with_history()
@@ -226,11 +158,9 @@ def get_historical_baro_pressure():
     return pressure_3h_ago
 
 baro_pressure_3h_ago = get_historical_baro_pressure()
-
-# Get barometric pressure for gauge
 fig, baro_pressure, _, _ = barometric_app.get_barometric_plot_with_history()
 
-# Cache the CompassRoseGauge rendering
+# Cache gauge rendering
 @st.cache_data(ttl=3600)
 def render_gauge(wind_direction, wind_speed, wind_gusts, temperature, precip_24h, 
                  baro_pressure, baro_pressure_3h_ago, humidity, water_temp, wave_height, swell_height):
@@ -254,17 +184,27 @@ def render_gauge(wind_direction, wind_speed, wind_gusts, temperature, precip_24h
     buf.seek(0)
     return buf
 
-# Prepare gauge data
-wind_direction = conditions["wind_direction"] if isinstance(conditions["wind_direction"], (int, float)) else 0
-wind_speed = conditions["wind_speed"] if isinstance(conditions["wind_speed"], (int, float)) else 0
-wind_gusts = conditions["wind_gust"] if isinstance(conditions["wind_gust"], (int, float)) else 0
-temperature = conditions["temperature"] if isinstance(conditions["temperature"], (int, float)) else 0
-precip_24h = conditions["precipitation_totals"]["24h"] if isinstance(conditions["precipitation_totals"]["24h"], (int, float)) else 0
-humidity = conditions["humidity"] if isinstance(conditions["humidity"], (int, float)) else 0
-water_temp = get_current_water_temp()
-wave_height_value, swell_height_value = get_windy_wave_data()
+# Prepare gauge data with type conversion
+def to_float(value, default=0):
+    try:
+        return float(value) if value is not None else default
+    except (ValueError, TypeError):
+        return default
 
-# Render and display gauge
+wind_direction = to_float(conditions.get("wind_direction", 0))
+wind_speed = to_float(conditions.get("wind_speed", 0))
+wind_gusts = to_float(conditions.get("wind_gust", 0))
+temperature = to_float(conditions.get("temperature", 0))
+precip_24h = to_float(conditions.get("precipitation_totals", {}).get("24h", 0))
+humidity = to_float(conditions.get("humidity", 0))
+water_temp = to_float(get_current_water_temp())
+wave_height_value, swell_height_value = get_windy_wave_data()
+wave_height_value = to_float(wave_height_value)
+swell_height_value = to_float(swell_height_value)
+baro_pressure = to_float(baro_pressure)
+baro_pressure_3h_ago = to_float(baro_pressure_3h_ago)
+
+# Render gauge
 gauge_buf = render_gauge(
     wind_direction, wind_speed, wind_gusts, temperature, precip_24h,
     baro_pressure, baro_pressure_3h_ago, humidity, water_temp, wave_height_value, swell_height_value
@@ -276,7 +216,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Start main content
 st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
-# Weather condition icon mapping
+# Weather icon mapping
 weather_icon_map = {
     "Clear": "icons/1530392_weather_sun_sunny_temperature.png",
     "Sunny": "icons/1530392_weather_sun_sunny_temperature.png",
@@ -308,7 +248,7 @@ weather_icon_map = {
     "Sunny with Rain": "icons/1530390_sunny_rain_cloudy_weather_clouds_partlysunny.png",
 }
 
-# Function to select weather icon with fuzzy matching
+# Function to select weather icon
 def get_weather_icon(condition_description, icon_map):
     condition_lower = condition_description.lower()
     if condition_description in icon_map:
@@ -327,7 +267,7 @@ def get_weather_icon(condition_description, icon_map):
         return image_to_base64(icon_map["Sunny"])
     return image_to_base64("icons/1530391_partly_sunny_partly_cloudy.png")
 
-# Function to generate Time-of-Day Progression summary
+# Weather summary
 def get_weather_summary(forecast_periods, conditions, sunrise, sunset):
     now = datetime.datetime.now(pytz.timezone('US/Eastern'))
     is_day = sunrise <= now <= sunset if sunrise and sunset else now.hour < 18
@@ -344,9 +284,9 @@ def get_weather_summary(forecast_periods, conditions, sunrise, sunset):
     morning_periods = [p for p in forecast_periods if period_start <= p['time'] < (morning_end if is_day else evening_end)]
     afternoon_periods = [p for p in forecast_periods if (afternoon_start if is_day else overnight_start) <= p['time'] <= period_end]
     current_desc = conditions.get('text_description', 'Unknown').lower()
-    current_temp = conditions.get('temperature', 60)
-    current_humidity = conditions.get('humidity', 50)
-    current_wind = conditions.get('wind_speed', 0)
+    current_temp = to_float(conditions.get('temperature', 60))
+    current_humidity = to_float(conditions.get('humidity', 50))
+    current_wind = to_float(conditions.get('wind_speed', 0))
     def get_dominant_condition(periods, default="Cloudy"):
         if not periods:
             return default
@@ -385,8 +325,8 @@ def get_weather_summary(forecast_periods, conditions, sunrise, sunset):
         temp_qualifier = "Warm"
     humidity_qualifier = "Humid" if current_humidity > 70 else ""
     wind_qualifier = "Breezy" if current_wind > 15 else ""
-    avg_first_temp = sum(p['temp'] for p in morning_periods) / len(morning_periods) if morning_periods else current_temp
-    avg_second_temp = sum(p['temp'] for p in afternoon_periods) / len(afternoon_periods) if afternoon_periods else current_temp
+    avg_first_temp = sum(to_float(p['temp']) for p in morning_periods) / len(morning_periods) if morning_periods else current_temp
+    avg_second_temp = sum(to_float(p['temp']) for p in afternoon_periods) / len(afternoon_periods) if afternoon_periods else current_temp
     if avg_second_temp - avg_first_temp > 5:
         temp_qualifier = "Warming"
     elif avg_first_temp - avg_second_temp > 5:
@@ -557,7 +497,7 @@ sun_tide_moon_html += '</div>'
 
 st.markdown(sun_tide_moon_html, unsafe_allow_html=True)
 
-# Upcoming Weather Section
+# Upcoming Weather
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown("<h2>Upcoming Weather</h2>", unsafe_allow_html=True)
 if forecast_periods:
@@ -585,7 +525,7 @@ if forecast_periods:
                 <div class="forecast-container">
                     <div>{label}</div>
                     <div>{timestamp}</div>
-                    <div>{period['temp']}°F</div>
+                    <div>{to_float(period['temp'])}°F</div>
                     {icon_html}
                     <div>{conditions_part1}</div>
                     <div>{conditions_part2}</div>
@@ -599,7 +539,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # Weather Advisory
 def get_nws_alerts(zone_id="ANZ332"):
-    """Fetch active weather alerts for ANZ332 from NWS API."""
     url = f"https://api.weather.gov/alerts/active/zone/{zone_id}"
     headers = {
         "User-Agent": "WeatherDashboard (your.email@example.com)",
@@ -616,7 +555,6 @@ def get_nws_alerts(zone_id="ANZ332"):
                 event = props.get("event", "Unknown")
                 severity = props.get("severity", "Unknown")
                 description = props.get("description", "").split("\n")
-                # Map event to marine warning flag
                 flag_map = {
                     "Small Craft Advisory": "icons/small_craft.png",
                     "Gale Warning": "icons/gale.png",
@@ -624,13 +562,11 @@ def get_nws_alerts(zone_id="ANZ332"):
                     "Hurricane Warning": "icons/hurricane.png"
                 }
                 flag_file = flag_map.get(event, "icons/small_craft.png")
-                # Encode flag as base64
                 try:
                     flag_base64 = image_to_base64(flag_file)
                 except Exception as e:
                     flag_base64 = ""
                     print(f"Failed to load flag {flag_file}: {e}")
-                # Extract key details, skip WHERE
                 details = ""
                 for line in description:
                     if line.startswith("* WHAT"):
@@ -676,10 +612,10 @@ with st.container():
         )
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Grid layout for remaining sections
+# Grid layout for plots
 row1_col1, row1_col2 = st.columns([1, 1])
 
-# Barometric Pressure Plot
+# Barometric Pressure
 with row1_col1:
     with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -708,7 +644,7 @@ with row1_col1:
                 f"""
                 <div class="metric-box">
                     <h3>Current Pressure</h3>
-                    <div class="metric-extra">{current_pressure:.2f} inHg ({trend})</div>
+                    <div class="metric-extra">{to_float(current_pressure):.2f} inHg ({trend})</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -766,7 +702,7 @@ with row1_col2:
                     f"""
                     <div class="metric-box">
                         <h3>Current Tide</h3>
-                        <div class="metric-extra">{current_height:.2f} ft ({trend})</div>
+                        <div class="metric-extra">{to_float(current_height):.2f} ft ({trend})</div>
                         <div class="metric-extra">{next_tide_label}: {next_tide_time} ({next_tide_diff})</div>
                         <div class="metric-extra">{other_tide_label}: {other_tide_time} ({other_tide_diff})</div>
                     </div>
@@ -778,7 +714,7 @@ with row1_col2:
                     f"""
                     <div class="metric-box">
                         <h3>Current Tide</h3>
-                        <div class="metric-extra">{current_height:.2f} ft ({trend})</div>
+                        <div class="metric-extra">{to_float(current_height):.2f} ft ({trend})</div>
                         <div class="metric-extra">Next High: {next_high_time}</div>
                         <div class="metric-extra">Next Low: {next_low_time}</div>
                     </div>
@@ -792,5 +728,6 @@ with row1_col2:
             st.error("Failed to load tide data")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Close main-content div
+# Close main-content
 st.markdown('</div>', unsafe_allow_html=True)
+
