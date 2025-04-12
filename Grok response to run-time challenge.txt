@@ -1,0 +1,69 @@
+Grok response to run-time challenges
+
+Replace Subprocess with Direct Import: Import travel_time.py as a module and call its function directly instead of using subprocess. This cuts process spawn time.
+
+Cache the Gauge: Wrap CompassRoseGauge creation and rendering in @st.cache_data with a TTL (e.g., 3600) to avoid redrawing unless data changes.
+
+Lower Gauge DPI: Drop dpi=200 to 100 or 150—still sharp enough for 2000px display but faster to render.
+
+Async API Calls: Use asyncio or concurrent.futures to parallelize get_current_conditions, get_wave_height, and barometric calls on first load.
+
+Cache Plots: Cache the Matplotlib figures for barometric and tide plots, not just their data, to skip styling overhead.
+
+
+Recap of Conversation (April 10, 2025)
+Context: You’re working on a Streamlit dashboard (dashboard.py) for Groton Long Point, displaying weather, tides, barometric pressure, and travel data. We’ve been tweaking fonts and optimizing performance, especially focusing on travel_time.py, which was slowing things down locally.
+Font Exploration:
+Started with adding "Architects Daughter" to your CompassRoseGauge class for a hand-drawn beach house vibe. Fixed the font path to C:/Users/teren/Tides/ArchitectsDaughter-Regular.ttf.
+
+Explored rustic, weathered fonts on Google Fonts for a beach house look: Special Elite, IM Fell English, Amatic SC, Permanent Marker, Rock Salt, Rye. You’re leaning toward these but paused to rest.
+
+Dashboard Slowdown:
+Noticed the dashboard lagging locally, suspecting travel time callouts and other bloat.
+
+Analyzed dashboard.py:
+Subprocess Overhead: get_travel_data runs travel_time.py via subprocess.run (100-500ms extra).
+
+API Calls: Weather, wave, and barometric data (TTL=3600) take 3-6s on initial load.
+
+Gauge Rendering: CompassRoseGauge (50x18.75, dpi=200) takes 1-3s per redraw, uncached.
+
+Suggested: Import travel_time.py directly, cache the gauge, lower DPI, async APIs.
+
+Optimizing travel_time.py:
+Original: Calculated drive times (both directions), all today’s trains, tomorrow’s trains—3-10s runtime.
+
+Updated Goal: Drive time from GLP to Chatham + next Mystic-to-Boston train.
+
+Streamlined:
+Cut Chatham-to-GLP and tomorrow’s trains.
+
+One Waze call (1-3s), optimized Amtrak API to stop at first train (1-2s), static fallback.
+
+New runtime: 2-5s.
+
+Full updated code provided, returns two strings (e.g., "2 hours and 55 minutes", "1:47 PM").
+
+Running Standalone:
+Instructions: cd C:\Users\teren\Tides, then python -c "import time; t0 = time.time(); exec(open('travel_time.py').read()); print(f'Runtime: {time.time() - t0:.2f} seconds')".
+
+Hit a Windows glitch (blank CMD from search), suggested reboot.
+
+Current State:
+You’ve got the updated travel_time.py ready to test standalone.
+
+Dashboard integration: Replace subprocess with from travel_time import get_drive_time, get_next_train.
+
+Paused for rest and a reboot due to the CMD issue.
+
+Next Steps (When You’re Back)
+Test travel_time.py standalone and check runtime.
+
+Update dashboard.py with the direct import if it’s snappy enough.
+
+Decide on fonts or further optimize the gauge if needed.
+
+Feel free to toss this recap back at me when you’re refreshed, and we’ll roll from there! Rest well!
+
+
+

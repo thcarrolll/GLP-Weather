@@ -4,7 +4,67 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import math
 import numpy as np
-from weather_data import get_current_conditions, degrees_to_cardinal, get_wave_height, get_current_water_temp, get_average_water_temp
+import requests
+import json
+from datetime import datetime
+from weather_data import get_current_conditions, degrees_to_cardinal, get_current_water_temp, get_average_water_temp
+
+def get_noaa_wave_data():
+    """Fetch wave height from NOAA for New London, CT (near Groton)."""
+    try:
+        url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        params = {
+            "date": "latest",
+            "station": "8461490",  # New London, CT
+            "product": "waves",
+            "format": "json",
+            "units": "english",
+            "time_zone": "gmt"
+        }
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            wave_height_ft = float(data["data"][0]["wh"]) if data.get("data") else 0.0
+            return wave_height_ft, 0.0  # NOAA waves, no swell
+        else:
+            print(f"NOAA API Error: {response.status_code}")
+            return 0.0, 0.0
+    except Exception as e:
+        print(f"NOAA Request Failed: {e}")
+        return 0.0, 0.0
+
+def get_windy_wave_data():
+    """Fetch wave and swell height from Windy API, fallback to NOAA if dummy data."""
+    url = "https://api.windy.com/api/point-forecast/v2"
+    payload = {
+        "lat": 41.311,
+        "lon": -72.014,
+        "model": "gfsWave",
+        "parameters": ["waves", "swell1"],
+        "key": "qcEK39VJSgSjX9I0oLAxmXAjPeGnG2eh",
+        "levels": ["surface"],
+        "time": "now"
+    }
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            wave_height_m = data.get("waves_height-surface", [0])[0]
+            swell_height_m = data.get("swell1_height-surface", [0])[0]
+            wave_height_ft = round(wave_height_m * 3.28084, 1)
+            swell_height_ft = round(swell_height_m * 3.28084, 1)
+            # Check for dummy data
+            if abs(wave_height_ft - 4.2) < 0.1 or wave_height_ft > 10.0:  # Unrealistic for Groton
+                print("Dummy data detected; using NOAA fallback")
+                return get_noaa_wave_data()
+            return wave_height_ft, swell_height_ft
+        else:
+            print(f"Windy API Error: {response.status_code}, {response.text}")
+            return get_noaa_wave_data()
+    except Exception as e:
+        print(f"Windy Request Failed: {e}")
+        return get_noaa_wave_data()
 
 class CompassRoseGauge:
     def __init__(self, width=16, height=6):
@@ -33,7 +93,7 @@ class CompassRoseGauge:
         
         self.fig.canvas.manager.set_window_title("Weather Dashboard Gauges")
 
-    def draw_compass_rose(self, wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, humidity, water_temp, wave_height, baro_pressure_3h_ago=None):
+    def draw_compass_rose(self, wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, humidity, water_temp, wave_height, baro_pressure_3h_ago=None, swell_height=0.0):
         # Wind Direction (ax1)
         wind_dir_text = degrees_to_cardinal(wind_direction)
         self.ax1.clear()
@@ -435,10 +495,10 @@ class CompassRoseGauge:
         inner_semi = patches.Wedge((0, 0), 0.9, 0, 180, edgecolor='#3c2f2f', facecolor='#B3CDE0', linewidth=0.9)
         self.ax8.add_patch(inner_semi)
 
-        min_wave, max_wave = 0, 30
+        min_wave, max_wave = 0, 15
         wave_range = max_wave - min_wave
-        labeled_values = [0, 5, 10, 15, 20, 25, 30]
-        for wave in range(0, max_wave + 1, 5):
+        labeled_values = [0, 3, 6, 9, 12, 15]
+        for wave in range(0, max_wave + 1, 3):
             normalized_wave = (wave - min_wave) / wave_range
             angle = 180 - (normalized_wave * 180)
             rad = math.radians(angle)
@@ -464,15 +524,23 @@ class CompassRoseGauge:
         wave_tip_y = 0.81 * math.sin(wave_rad)
         self.ax8.arrow(0, 0, wave_tip_x, wave_tip_y, color='black', width=0.018, head_width=0.054, 
                       head_length=0.09, length_includes_head=True)
+
+        swell_height = min(max(swell_height, min_wave), max_wave)
+        swell_angle = 180 - ((swell_height - min_wave) / wave_range) * 180
+        swell_rad = math.radians(swell_angle)
+        swell_tip_x = 0.72 * math.cos(swell_rad)
+        swell_tip_y = 0.72 * math.sin(swell_rad)
+        self.ax8.plot([0, swell_tip_x], [0, swell_tip_y], color='red', linewidth=2.5, zorder=5)
+
         self.ax8.text(0, -0.4, "Wave Height", ha='center', va='center', fontsize=10, 
                      family='serif', color='#3c2f2f')
 
     def update(self, wind_direction=None, wind_speed=None, wind_gusts=None, temperature=None, precip_24h=None, 
-               baro_pressure=None, humidity=None, water_temp=None, wave_height=None, baro_pressure_3h_ago=None):
+               baro_pressure=None, humidity=None, water_temp=None, wave_height=None, swell_height=None, baro_pressure_3h_ago=None):
         if any(x is None for x in [wind_direction, wind_speed, wind_gusts, temperature, precip_24h, 
-                                   baro_pressure, humidity, water_temp, wave_height]):
+                                   baro_pressure, humidity, water_temp]):
             conditions = get_current_conditions()
-            wave_height, _ = get_wave_height()
+            wave_height, swell_height = get_windy_wave_data()
             wind_direction = conditions["wind_direction"]
             wind_speed = conditions["wind_speed"]
             wind_gusts = conditions["wind_gust"] if isinstance(conditions["wind_gust"], (int, float)) else 0
@@ -483,7 +551,7 @@ class CompassRoseGauge:
             water_temp = get_current_water_temp()
             baro_pressure_3h_ago = baro_pressure - 0.1 if baro_pressure_3h_ago is None else baro_pressure_3h_ago
         self.draw_compass_rose(wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, 
-                              humidity, water_temp, wave_height, baro_pressure_3h_ago)
+                              humidity, water_temp, wave_height, baro_pressure_3h_ago, swell_height)
         plt.draw()
 
     def show(self):
@@ -493,7 +561,7 @@ if __name__ == "__main__":
     import threading
     if threading.current_thread() is threading.main_thread():
         conditions = get_current_conditions()
-        wave_height, _ = get_wave_height()
+        wave_height, swell_height = get_windy_wave_data()
         wind_direction = conditions["wind_direction"]
         wind_speed = conditions["wind_speed"]
         wind_gusts = conditions["wind_gust"] if isinstance(conditions["wind_gust"], (int, float)) else 0
@@ -506,7 +574,7 @@ if __name__ == "__main__":
         
         gauge = CompassRoseGauge()
         gauge.draw_compass_rose(wind_direction, wind_speed, wind_gusts, temperature, precip_24h, baro_pressure, 
-                               humidity, water_temp, wave_height, baro_pressure_3h_ago)
+                               humidity, water_temp, wave_height, baro_pressure_3h_ago, swell_height)
         gauge.show()
     else:
         print("Error: This script must be run in the main thread.")

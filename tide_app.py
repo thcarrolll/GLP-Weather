@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -7,25 +9,26 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
-  # Use TkAgg for interactive plots; requires tkinter
-
 def get_tide_plot():
-    # Dynamically set date range: yesterday to 5 days forward (6 days total)
     utc_now = datetime.datetime.now(pytz.UTC)
-    local_tz = pytz.timezone('America/New_York')  # EDT
+    local_tz = pytz.timezone('America/New_York')
     local_now = utc_now.astimezone(local_tz)
-    start_date = local_now - datetime.timedelta(days=1)  # Yesterday
-    end_date = local_now + datetime.timedelta(days=4)    # Today + 4 = 5 days forward
+    start_date = local_now - datetime.timedelta(days=1)
+    end_date = local_now + datetime.timedelta(days=4)
     
     url = (
         f"https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?"
         f"begin_date={start_date.strftime('%Y%m%d')}&end_date={end_date.strftime('%Y%m%d')}&"
         f"station=8461490&product=predictions&datum=MLLW&time_zone=gmt&interval=6&units=english&format=json"
     )
-    print(f"Request URL: {url}")  # Debug URL
+    print(f"Request URL: {url}")
     
     try:
-        response = requests.get(url)
+        session = requests.Session()
+        retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+        response = session.get(url, timeout=30)
         response.raise_for_status()
         data = response.json()
         predictions = data.get("predictions", [])
@@ -41,9 +44,8 @@ def get_tide_plot():
 
         if not times:
             print("No valid tide data available.")
-            return None, None, None, None, None
+            raise ValueError("Empty predictions list")
 
-        # Debug: Print first and last data points
         print(f"First data point: {times[0].astimezone(local_tz).strftime('%Y-%m-%d %I:%M %p %Z')}")
         print(f"Last data point: {times[-1].astimezone(local_tz).strftime('%Y-%m-%d %I:%M %p %Z')}")
 
@@ -53,7 +55,6 @@ def get_tide_plot():
         heights = list(heights)
         times_local = [t.astimezone(local_tz) for t in times]
 
-        # Current tide height and trend
         current_height = None
         trend = None
         for i, time in enumerate(times):
@@ -69,19 +70,17 @@ def get_tide_plot():
             current_height = heights[-1]
             trend = "Rising" if len(heights) > 1 and heights[-1] > heights[-2] else "Falling"
 
-        # Find highs and lows with relaxed detection
         heights_array = np.array(heights)
         highs = []
         lows = []
-        window = 5  # ~30 minutes
-        expected_tides = 10  # Min 2 per day over 5+ days
+        window = 5
+        expected_tides = 10
         for i in range(window, len(heights) - window):
             if heights[i] == max(heights[i-window:i+window+1]):
                 highs.append((times[i], heights[i]))
             if heights[i] == min(heights[i-window:i+window+1]):
                 lows.append((times[i], heights[i]))
 
-        # Fallback if too few tides detected
         if len(highs) < expected_tides or len(lows) < expected_tides:
             highs = []
             lows = []
@@ -91,7 +90,6 @@ def get_tide_plot():
                 if heights[i] < heights[i-1] and heights[i] < heights[i+1]:
                     lows.append((times[i], heights[i]))
 
-        # Find next high and low after now
         next_high = None
         next_low = None
         for time, height in highs:
@@ -103,8 +101,7 @@ def get_tide_plot():
                 next_low = (time, height)
                 break
 
-        # Fallback: Shift to next cycle if no next tide
-        tidal_period = datetime.timedelta(hours=12, minutes=25)  # Approx semi-diurnal period
+        tidal_period = datetime.timedelta(hours=12, minutes=25)
         if not next_high and highs:
             next_high = (highs[0][0] + tidal_period, highs[0][1])
             while next_high[0] <= utc_now:
@@ -117,13 +114,11 @@ def get_tide_plot():
         next_high_time = next_high[0].astimezone(local_tz).strftime('%a %I:%M %p').replace(' 0', ' ').lstrip('0') if next_high else "N/A"
         next_low_time = next_low[0].astimezone(local_tz).strftime('%a %I:%M %p').replace(' 0', ' ').lstrip('0') if next_low else "N/A"
 
-        # Create plot
         plt.close('all')
         fig, ax = plt.subplots(figsize=(5, 3))
         ax.plot(times_local, heights, color='black', linestyle='-', linewidth=1)
         ax.axvline(local_now, color='red', linestyle='--', linewidth=1)
 
-        # Annotate highs and lows with smaller font
         min_height = min(heights) - 0.5
         max_height = max(heights) + 0.5
         for high_time, high_height in highs:
@@ -137,7 +132,6 @@ def get_tide_plot():
             y_pos = max(low_height - 0.3, min_height + 0.2)
             ax.text(low_time_local, y_pos, time_str, ha='center', va='top', color='#000000', fontsize=4)
 
-        # Shading for each day, aligned with data
         start_time = times_local[0].replace(hour=0, minute=0, second=0, microsecond=0)
         end_time = times_local[-1].replace(hour=23, minute=59, second=59, microsecond=999999)
         current_day = start_time
@@ -149,7 +143,6 @@ def get_tide_plot():
             current_day = next_day
             day_count += 1
 
-        # Set x-axis limits to actual data range
         ax.set_xlim(times_local[0], times_local[-1])
         tick_times = [times_local[0] + datetime.timedelta(days=i) for i in range(int((times_local[-1] - times_local[0]).days) + 1)]
         ax.set_xticks(tick_times)
@@ -169,7 +162,10 @@ def get_tide_plot():
         return fig, current_height, trend, next_high_time, next_low_time
     except Exception as e:
         print(f"Error in get_tide_plot: {e}")
-        return None, None, None, None, None
+        fig, ax = plt.subplots(figsize=(5, 3))
+        ax.text(0.5, 0.5, "Tide Data Unavailable\nCheck Connection or Try Later", ha='center', va='center', color='black')
+        ax.set_axis_off()
+        return fig, 0.0, "N/A", "N/A", "N/A"
 
 if __name__ == "__main__":
     fig, current_height, trend, next_high_time, next_low_time = get_tide_plot()
